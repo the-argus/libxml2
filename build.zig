@@ -63,13 +63,11 @@ pub fn build(b: *std.build.Builder) !void {
     });
     b.installArtifact(xml2.step);
 
-    const inst_step = b.getInstallStep();
     for (headers) |h| {
-        const h_step = b.addInstallHeaderFile(
+        xml2.step.installHeader(
             std.fs.path.join(b.allocator, &.{ "include", "libxml", h }) catch @panic("OOM"),
             std.fs.path.join(b.allocator, &.{ "libxml", h }) catch @panic("OOM"),
         );
-        inst_step.dependOn(&h_step.step);
     }
 
     // Tests that we can depend on other libraries like zlib
