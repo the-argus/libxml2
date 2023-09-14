@@ -1,0 +1,97 @@
+const std = @import("std");
+const libxml2 = @import("libxml2.zig");
+
+const headers = &[_][]const u8{
+    "c14n.h",
+    "catalog.h",
+    "chvalid.h",
+    "debugXML.h",
+    "dict.h",
+    "encoding.h",
+    "entities.h",
+    "globals.h",
+    "hash.h",
+    "HTMLparser.h",
+    "HTMLtree.h",
+    "list.h",
+    "Makefile.am",
+    "nanoftp.h",
+    "nanohttp.h",
+    "parser.h",
+    "parserInternals.h",
+    "pattern.h",
+    "relaxng.h",
+    "SAX.h",
+    "SAX2.h",
+    "schemasInternals.h",
+    "schematron.h",
+    "threads.h",
+    "tree.h",
+    "uri.h",
+    "valid.h",
+    "xinclude.h",
+    "xlink.h",
+    "xmlautomata.h",
+    "xmlerror.h",
+    "xmlexports.h",
+    "xmlIO.h",
+    "xmlmemory.h",
+    "xmlmodule.h",
+    "xmlreader.h",
+    "xmlregexp.h",
+    "xmlsave.h",
+    "xmlschemas.h",
+    "xmlschemastypes.h",
+    "xmlstring.h",
+    "xmlunicode.h",
+    // "xmlversion.h.in",
+    "xmlwriter.h",
+    "xpath.h",
+    "xpathInternals.h",
+    "xpointer.h",
+};
+
+pub fn build(b: *std.build.Builder) !void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const xml2 = try libxml2.create(b, target, optimize, .{
+        // We don't have the required libs so don't build these
+        .iconv = false,
+        .lzma = false,
+        .zlib = false,
+    });
+    b.installArtifact(xml2.step);
+
+    const inst_step = b.getInstallStep();
+    for (headers) |h| {
+        const h_step = b.addInstallHeaderFile(
+            std.fs.path.join(b.allocator, &.{ "include", "libxml", h }) catch @panic("OOM"),
+            std.fs.path.join(b.allocator, &.{ "libxml", h }) catch @panic("OOM"),
+        );
+        inst_step.dependOn(&h_step.step);
+    }
+
+    // Tests that we can depend on other libraries like zlib
+    const xml2_with_libs = try libxml2.create(b, target, optimize, .{
+        // We don't have the required libs so don't build these
+        .iconv = false,
+        .lzma = false,
+
+        // Testing this
+        .zlib = true,
+    });
+    // todo: uncomment when zig-zlib is updated
+    // const z = zlib.create(b, target, optimize);
+    // z.link(xml2_with_libs.step, .{});
+
+    const static_binding_test = b.addTest(.{
+        .root_source_file = .{ .path = "test/basic.zig" },
+        .optimize = optimize,
+    });
+    xml2.link(static_binding_test);
+
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&xml2_with_libs.step.step);
+    test_step.dependOn(&static_binding_test.step);
+}
